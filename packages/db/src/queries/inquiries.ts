@@ -1,5 +1,5 @@
 import { supabase } from '../client';
-import type { Tables, Inserts } from '../types';
+import type { Tables } from '../types';
 
 export async function getBasket(buyerId: string) {
   return supabase
@@ -20,12 +20,21 @@ export async function getBasket(buyerId: string) {
     .single();
 }
 
-export async function addToBasket(basketId: string, item: Inserts<'inquiry_items'>) {
-  return supabase.from('inquiry_items').insert({ ...item, basket_id: basketId });
+export interface InquiryItemInput {
+  product_id: string;
+  variant_id?: string | null;
+  supplier_id: string;
+  quantity: number;
+  unit_price?: number | null;
+  notes?: string | null;
+}
+
+export async function addToBasket(basketId: string, item: InquiryItemInput) {
+  return supabase.from('inquiry_items').insert({ ...item, basket_id: basketId } as never);
 }
 
 export async function updateBasketItem(itemId: string, updates: Partial<Tables<'inquiry_items'>>) {
-  return supabase.from('inquiry_items').update(updates).eq('id', itemId);
+  return supabase.from('inquiry_items').update(updates as never).eq('id', itemId);
 }
 
 export async function removeFromBasket(itemId: string) {
@@ -33,7 +42,7 @@ export async function removeFromBasket(itemId: string) {
 }
 
 export async function submitBasket(basketId: string) {
-  return supabase.rpc('submit_inquiry_basket', { basket_id: basketId });
+  return supabase.rpc('submit_inquiry_basket', { basket_id: basketId } as never);
 }
 
 export async function getSupplierRFQs(supplierId: string, status?: string) {
@@ -99,7 +108,7 @@ export async function respondToRFQ(rfqId: string, items: Array<{
         lead_time_days: item.lead_time_days,
         status: item.status,
         supplier_notes: item.supplier_notes,
-      })
+      } as never)
       .eq('id', item.rfq_item_id)
   );
 
@@ -111,6 +120,6 @@ export async function respondToRFQ(rfqId: string, items: Array<{
       status: 'quoted',
       responded_at: new Date().toISOString(),
       total_amount: items.reduce((sum, i) => sum + i.quoted_price * i.quoted_qty, 0),
-    })
+    } as never)
     .eq('id', rfqId);
 }

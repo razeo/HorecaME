@@ -53,6 +53,7 @@ INSERT INTO categories (parent_id, slug, sort_order) VALUES
   ('a1000000-0000-0000-0000-000000000001', 'frozen', 5),
   ('a1000000-0000-0000-0000-000000000001', 'dry-goods', 6),
   ('a1000000-0000-0000-0000-000000000001', 'condiments-spices', 7),
+  ('a1000000-0000-0000-0000-000000000001', 'olive-oil', 8),
   -- Beverages subcategories
   ('a1000000-0000-0000-0000-000000000002', 'alcoholic', 1),
   ('a1000000-0000-0000-0000-000000000002', 'non-alcoholic', 2),
@@ -76,6 +77,7 @@ SELECT c.id, 'me', CASE c.slug
   WHEN 'frozen' THEN 'Zamrznuta hrana'
   WHEN 'dry-goods' THEN 'Suvi proizvodi'
   WHEN 'condiments-spices' THEN 'Začini i dodaci'
+  WHEN 'olive-oil' THEN 'Maslinovo ulje'
   WHEN 'alcoholic' THEN 'Alkoholna pića'
   WHEN 'non-alcoholic' THEN 'Bezalkoholna pića'
   WHEN 'coffee-tea' THEN 'Kafa i čaj'
@@ -100,6 +102,7 @@ SELECT c.id, 'en', CASE c.slug
   WHEN 'frozen' THEN 'Frozen Food'
   WHEN 'dry-goods' THEN 'Dry Goods'
   WHEN 'condiments-spices' THEN 'Condiments & Spices'
+  WHEN 'olive-oil' THEN 'Olive Oil'
   WHEN 'alcoholic' THEN 'Alcoholic Beverages'
   WHEN 'non-alcoholic' THEN 'Non-Alcoholic Beverages'
   WHEN 'coffee-tea' THEN 'Coffee & Tea'

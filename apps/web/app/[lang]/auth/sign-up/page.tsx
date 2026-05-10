@@ -1,76 +1,24 @@
-'use client';
-
-import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@horecame/ui/primitives';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@horecame/ui/primitives';
 
 interface SignUpPageProps {
-  params: Promise<{ lang: string }>;
+  params: Promise<{ lang: 'me' | 'en' }>;
 }
 
-export default function SignUpPage({ params }: SignUpPageProps) {
-  const { lang } = React.use(params);
-  const l = lang as 'me' | 'en';
-  const router = useRouter();
-  const [fullName, setFullName] = React.useState('');
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [companyName, setCompanyName] = React.useState('');
-  const [companyType, setCompanyType] = React.useState<'buyer' | 'supplier' | 'both'>('buyer');
-  const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
+export default async function SignUpPage({ params }: SignUpPageProps) {
+  const { lang } = await params;
 
-  const dict = {
-    me: {
-      title: 'Registracija',
-      description: 'Kreirajte vaš HorecaMe nalog',
-      fullName: 'Puno ime',
-      email: 'Email',
-      password: 'Lozinka',
-      companyName: 'Naziv kompanije',
-      companyType: 'Tip kompanije',
-      buyer: 'Kupac',
-      supplier: 'Dobavljač',
-      both: 'Kupac i Dobavljač',
-      submit: 'Registrujte se',
-      loading: 'Registracija...',
-      hasAccount: 'Već imate nalog?',
-      signIn: 'Prijavite se',
-      success: 'Provjerite vaš email za potvrdu naloga.',
-      error: 'Greška pri registraciji',
-    },
-    en: {
-      title: 'Sign Up',
-      description: 'Create your HorecaMe account',
-      fullName: 'Full Name',
-      email: 'Email',
-      password: 'Password',
-      companyName: 'Company Name',
-      companyType: 'Company Type',
-      buyer: 'Buyer',
-      supplier: 'Supplier',
-      both: 'Buyer & Supplier',
-      submit: 'Sign Up',
-      loading: 'Signing up...',
-      hasAccount: 'Already have an account?',
-      signIn: 'Sign In',
-      success: 'Check your email to confirm your account.',
-      error: 'Error during registration',
-    },
-  };
+  async function signUp(formData: FormData) {
+    'use server';
+    const fullName = formData.get('full_name') as string;
+    const companyName = formData.get('company_name') as string;
+    const companyType = formData.get('company_type') as string;
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
 
-  const t = dict[l];
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    const supabase = createClient();
-    const { data, error: signUpError } = await supabase.auth.signUp({
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -82,119 +30,68 @@ export default function SignUpPage({ params }: SignUpPageProps) {
       },
     });
 
-    if (signUpError) {
-      setError(t.error);
-      setLoading(false);
-      return;
+    if (error) {
+      redirect(`/${lang}/auth/sign-up?error=${encodeURIComponent(error.message)}`);
     }
 
-    setSuccess(true);
-    setLoading(false);
-  }
-
-  if (success) {
-    return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-6">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/20 text-success text-2xl">
-              ✓
-            </div>
-            <h2 className="mb-2 text-xl font-semibold text-white">{t.success}</h2>
-            <Link href={`/${l}/auth/sign-in`}>
-              <Button className="mt-4">{t.signIn}</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    redirect(`/${lang}/auth/sign-in?message=${encodeURIComponent(lang === 'me' ? 'Provjerite email za potvrdu' : 'Check your email for confirmation')}`);
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">{t.title}</CardTitle>
-          <CardDescription>{t.description}</CardDescription>
+        <CardHeader>
+          <CardTitle className="text-2xl">
+            {lang === 'me' ? 'Registracija' : 'Sign Up'}
+          </CardTitle>
+          <CardDescription>
+            {lang === 'me'
+              ? 'Kreirajte nalog za vašu kompaniju'
+              : 'Create an account for your company'}
+          </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-lg bg-error/10 p-3 text-sm text-error">{error}</div>
-            )}
+        <CardContent>
+          <form action={signUp} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">{t.fullName}</Label>
-              <Input
-                id="fullName"
-                placeholder={l === 'me' ? 'Marko Marković' : 'John Doe'}
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-              />
+              <Label htmlFor="full_name">{lang === 'me' ? 'Puno ime' : 'Full Name'}</Label>
+              <Input id="full_name" name="full_name" required placeholder={lang === 'me' ? 'Marko Marković' : 'John Doe'} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="companyName">{t.companyName}</Label>
-              <Input
-                id="companyName"
-                placeholder={l === 'me' ? 'Vaša kompanija d.o.o.' : 'Your Company Ltd.'}
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                required
-              />
+              <Label htmlFor="company_name">{lang === 'me' ? 'Naziv kompanije' : 'Company Name'}</Label>
+              <Input id="company_name" name="company_name" required placeholder={lang === 'me' ? 'Hotel Primjer d.o.o.' : 'Hotel Example LLC'} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="companyType">{t.companyType}</Label>
-              <div className="flex gap-2">
-                {(['buyer', 'supplier', 'both'] as const).map((type) => (
-                  <Button
-                    key={type}
-                    type="button"
-                    variant={companyType === type ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCompanyType(type)}
-                    className="flex-1"
-                  >
-                    {t[type]}
-                  </Button>
-                ))}
-              </div>
+              <Label htmlFor="company_type">{lang === 'me' ? 'Tip kompanije' : 'Company Type'}</Label>
+              <select
+                id="company_type"
+                name="company_type"
+                defaultValue="buyer"
+                className="flex h-10 w-full rounded-lg border border-teal/20 bg-surface-raised px-3 text-sm text-white"
+              >
+                <option value="buyer">{lang === 'me' ? 'Kupac' : 'Buyer'}</option>
+                <option value="supplier">{lang === 'me' ? 'Dobavljač' : 'Supplier'}</option>
+                <option value="both">{lang === 'me' ? 'Dobavljač i Kupac' : 'Supplier & Buyer'}</option>
+              </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">{t.email}</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" required placeholder="email@example.com" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t.password}</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
+              <Label htmlFor="password">{lang === 'me' ? 'Lozinka' : 'Password'}</Label>
+              <Input id="password" name="password" type="password" required minLength={6} />
             </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t.loading : t.submit}
+            <Button type="submit" className="w-full">
+              {lang === 'me' ? 'Registrujte se' : 'Sign Up'}
             </Button>
-            <p className="text-center text-sm text-slate-400">
-              {t.hasAccount}{' '}
-              <Link href={`/${l}/auth/sign-in`} className="text-sky hover:underline">
-                {t.signIn}
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
+          </form>
+          <p className="mt-4 text-center text-sm text-slate-500">
+            {lang === 'me' ? 'Već imate nalog?' : 'Already have an account?'}{' '}
+            <a href={`/${lang}/auth/sign-in`} className="text-sky hover:underline">
+              {lang === 'me' ? 'Prijavite se' : 'Sign In'}
+            </a>
+          </p>
+        </CardContent>
       </Card>
     </div>
   );

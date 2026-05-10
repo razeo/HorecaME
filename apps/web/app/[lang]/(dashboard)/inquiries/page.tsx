@@ -1,130 +1,101 @@
-'use client';
-
-import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 import { RFQCard } from '@horecame/ui/inquiry';
-import { Button, Card, CardContent, Badge } from '@horecame/ui/primitives';
-import { createClient } from '@/lib/supabase/client';
-import { FileText, Clock, Check, X } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@horecame/ui/primitives';
+import { FileText } from 'lucide-react';
 
 interface InquiriesPageProps {
-  params: Promise<{ lang: string }>;
+  params: Promise<{ lang: 'me' | 'en' }>;
 }
 
-export default function InquiriesPage({ params }: InquiriesPageProps) {
-  const { lang } = React.use(params);
-  const l = lang as 'me' | 'en';
-  const router = useRouter();
-  const [inquiries, setInquiries] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
+export default async function InquiriesPage({ params }: InquiriesPageProps) {
+  const { lang } = await params;
+  const supabase = await createClient();
 
-  React.useEffect(() => {
-    loadInquiries();
-  }, []);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect(`/${lang}/auth/sign-in?redirect=/${lang}/inquiries`);
+  }
 
-  async function loadInquiries() {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id')
+    .eq('id', user.id)
+    .single();
 
-    if (!user) {
-      router.push(`/${l}/auth/sign-in`);
-      return;
-    }
+  const companyId = (profile as any)?.company_id;
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('company_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.company_id) {
-      setLoading(false);
-      return;
-    }
-
+  let baskets: any[] = [];
+  if (companyId) {
     const { data } = await supabase
       .from('inquiry_baskets')
       .select(`
         *,
+        inquiry_items(
+          *,
+          products(id, slug, product_translations(name), companies(name))
+        ),
         supplier_rfqs(
           *,
           companies!supplier_rfqs_supplier_id_fkey(id, name, slug),
-          rfq_items(
-            *,
-            products(id, slug,
-              product_translations!inner(name)
-            )
-          )
+          rfq_items(*)
         )
       `)
-      .eq('buyer_id', profile.company_id)
+      .eq('buyer_id', companyId)
       .neq('status', 'draft')
       .order('created_at', { ascending: false });
-
-    setInquiries(data ?? []);
-    setLoading(false);
-  }
-
-  const dict = {
-    me: { title: 'Upiti', empty: 'Nemate poslatih upita', browse: 'Pregledaj proizvode' },
-    en: { title: 'Inquiries', empty: 'No inquiries yet', browse: 'Browse Products' },
-  };
-  const t = dict[l];
-
-  const statusLabels: Record<string, { me: string; en: string }> = {
-    submitted: { me: 'Poslato', en: 'Submitted' },
-    partially_responded: { me: 'Djelimično odgovoreno', en: 'Partially Responded' },
-    completed: { me: 'Završeno', en: 'Completed' },
-    cancelled: { me: 'Otkazano', en: 'Cancelled' },
-  };
-
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <p className="text-slate-400">{l === 'me' ? 'Učitavanje...' : 'Loading...'}</p>
-      </div>
-    );
+    baskets = data ?? [];
   }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-8 text-3xl font-bold text-white">{t.title}</h1>
+      <h1 className="mb-2 text-3xl font-bold text-white">
+        {lang === 'me' ? 'Upiti' : 'Inquiries'}
+      </h1>
+      <p className="mb-8 text-slate-400">
+        {lang === 'me'
+          ? `${baskets.length} upita`
+          : `${baskets.length} inquiries`}
+      </p>
 
-      {inquiries.length === 0 ? (
-        <div className="py-20 text-center">
-          <FileText className="mx-auto mb-4 h-16 w-16 text-slate-600" />
-          <p className="mb-4 text-slate-400">{t.empty}</p>
-        </div>
-      ) : (
+      {baskets.length > 0 ? (
         <div className="space-y-6">
-          {inquiries.map((inquiry) => (
-            <Card key={inquiry.id}>
-              <CardContent className="p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">
-                      {new Date(inquiry.created_at).toLocaleDateString(l === 'me' ? 'sr-ME' : 'en-GB')}
-                    </p>
-                    <Badge variant={inquiry.status === 'completed' ? 'success' : inquiry.status === 'cancelled' ? 'error' : 'secondary'}>
-                      {statusLabels[inquiry.status]?.[l] ?? inquiry.status}
-                    </Badge>
+          {baskets.map((basket) => (
+            <Card key={basket.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    {lang === 'me' ? 'Upit' : 'Inquiry'} #{basket.id.slice(0, 8)}
+                  </CardTitle>
+                  <span className="text-sm text-slate-500">
+                    {new Date(basket.created_at).toLocaleDateString(lang === 'me' ? 'sr-ME' : 'en-GB')}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-slate-400">
+                  {basket.inquiry_items?.length ?? 0} {lang === 'me' ? 'stavki' : 'items'} · {lang === 'me' ? 'Status' : 'Status'}: {basket.status}
+                </p>
+                {basket.supplier_rfqs?.map((rfq: any) => (
+                  <div key={rfq.id} className="mt-4">
+                    <RFQCard rfq={rfq} lang={lang} />
                   </div>
-                </div>
-
-                {/* Supplier RFQs */}
-                <div className="space-y-3">
-                  {inquiry.supplier_rfqs?.map((rfq: any) => (
-                    <RFQCard
-                      key={rfq.id}
-                      rfq={rfq}
-                      lang={l}
-                      isSupplier={false}
-                    />
-                  ))}
-                </div>
+                ))}
               </CardContent>
             </Card>
           ))}
+        </div>
+      ) : (
+        <div className="py-24 text-center">
+          <FileText className="mx-auto h-12 w-12 text-slate-600" />
+          <h2 className="mt-4 text-xl font-semibold text-white">
+            {lang === 'me' ? 'Nema upita' : 'No inquiries'}
+          </h2>
+          <p className="mt-2 text-slate-500">
+            {lang === 'me'
+              ? 'Vaši upiti će se pojaviti ovdje'
+              : 'Your inquiries will appear here'}
+          </p>
         </div>
       )}
     </div>

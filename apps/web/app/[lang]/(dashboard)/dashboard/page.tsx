@@ -1,24 +1,20 @@
-import Link from 'next/link';
-import { Button, Card, CardHeader, CardTitle, CardContent, Badge } from '@horecame/ui/primitives';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { Package, ShoppingCart, FileText, BarChart3, Settings, ArrowRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@horecame/ui/primitives';
+import { Building2, Package, ShoppingCart, FileText } from 'lucide-react';
+import Link from 'next/link';
 
 interface DashboardPageProps {
-  params: Promise<{ lang: string }>;
+  params: Promise<{ lang: 'me' | 'en' }>;
 }
 
 export default async function DashboardPage({ params }: DashboardPageProps) {
   const { lang } = await params;
-  const l = lang as 'me' | 'en';
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/${l}/auth/sign-in`);
+    redirect(`/${lang}/auth/sign-in?redirect=/${lang}/dashboard`);
   }
 
   const { data: profile } = await supabase
@@ -27,136 +23,62 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .eq('id', user.id)
     .single();
 
-  if (!profile) {
-    redirect(`/${l}/auth/sign-in`);
-  }
-
-  const isSupplier = profile.companies?.company_type === 'supplier' || profile.companies?.company_type === 'both';
-  const isBuyer = profile.companies?.company_type === 'buyer' || profile.companies?.company_type === 'both';
-
-  // Fetch stats
-  const [basketRes, inquiriesRes, productsRes, rfqsRes] = await Promise.all([
-    isBuyer ? supabase.from('inquiry_baskets').select('*', { count: 'exact', head: true }).eq('buyer_id', profile.company_id).eq('status', 'draft') : { count: 0 },
-    isBuyer ? supabase.from('inquiry_baskets').select('*', { count: 'exact', head: true }).eq('buyer_id', profile.company_id).neq('status', 'draft') : { count: 0 },
-    isSupplier ? supabase.from('products').select('*', { count: 'exact', head: true }).eq('company_id', profile.company_id).eq('is_active', true) : { count: 0 },
-    isSupplier ? supabase.from('supplier_rfqs').select('*', { count: 'exact', head: true }).eq('supplier_id', profile.company_id).eq('status', 'pending') : { count: 0 },
-  ]);
-
-  const dict = {
-    me: {
-      title: 'Kontrolna tabla',
-      welcome: 'Dobrodošli',
-      basket: 'Korpa',
-      basketDesc: 'Stavke u korpi',
-      inquiries: 'Upiti',
-      inquiriesDesc: 'Poslati upiti',
-      products: 'Proizvodi',
-      productsDesc: 'Vaši proizvodi',
-      rfqs: 'Novi RFQ',
-      rfqsDesc: 'Čekaju odgovor',
-      view: 'Pogledaj',
-      quickActions: 'Brze akcije',
-      browseProducts: 'Pregledaj proizvode',
-      manageProducts: 'Upravljaj proizvodima',
-      viewInquiries: 'Pregledaj upite',
-      viewRFQs: 'Pregledaj RFQ',
-    },
-    en: {
-      title: 'Dashboard',
-      welcome: 'Welcome',
-      basket: 'Basket',
-      basketDesc: 'Items in basket',
-      inquiries: 'Inquiries',
-      inquiriesDesc: 'Sent inquiries',
-      products: 'Products',
-      productsDesc: 'Your products',
-      rfqs: 'New RFQs',
-      rfqsDesc: 'Awaiting response',
-      view: 'View',
-      quickActions: 'Quick Actions',
-      browseProducts: 'Browse Products',
-      manageProducts: 'Manage Products',
-      viewInquiries: 'View Inquiries',
-      viewRFQs: 'View RFQs',
-    },
-  };
-  const t = dict[l];
+  const company = (profile as any)?.companies;
 
   const stats = [
-    ...(isBuyer ? [
-      { icon: ShoppingCart, label: t.basket, value: basketRes.count ?? 0, desc: t.basketDesc, href: `/${l}/basket` },
-      { icon: FileText, label: t.inquiries, value: inquiriesRes.count ?? 0, desc: t.inquiriesDesc, href: `/${l}/inquiries` },
-    ] : []),
-    ...(isSupplier ? [
-      { icon: Package, label: t.products, value: productsRes.count ?? 0, desc: t.productsDesc, href: `/${l}/dashboard/products` },
-      { icon: BarChart3, label: t.rfqs, value: rfqsRes.count ?? 0, desc: t.rfqsDesc, href: `/${l}/dashboard/rfqs` },
-    ] : []),
+    {
+      label: lang === 'me' ? 'Kompanija' : 'Company',
+      value: company?.name ?? (lang === 'me' ? 'Nije postavljeno' : 'Not set'),
+      icon: Building2,
+      href: `/${lang}/dashboard/settings`,
+    },
+    {
+      label: lang === 'me' ? 'Proizvodi' : 'Products',
+      value: lang === 'me' ? 'Upravljaj' : 'Manage',
+      icon: Package,
+      href: `/${lang}/dashboard/products`,
+    },
+    {
+      label: lang === 'me' ? 'Korpa' : 'Basket',
+      value: lang === 'me' ? 'Pogledaj' : 'View',
+      icon: ShoppingCart,
+      href: `/${lang}/basket`,
+    },
+    {
+      label: lang === 'me' ? 'Upiti' : 'Inquiries',
+      value: lang === 'me' ? 'Pogledaj' : 'View',
+      icon: FileText,
+      href: `/${lang}/inquiries`,
+    },
   ];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">{t.title}</h1>
-        <p className="mt-1 text-slate-400">
-          {t.welcome}, {profile.full_name}
-          {profile.companies && (
-            <span className="text-slate-500"> · {profile.companies.name}</span>
-          )}
-        </p>
-      </div>
+      <h1 className="mb-2 text-3xl font-bold text-white">
+        {lang === 'me' ? 'Kontrolna tabla' : 'Dashboard'}
+      </h1>
+      <p className="mb-8 text-slate-400">
+        {lang === 'me'
+          ? `Dobrodošli, ${profile?.full_name ?? user.email}`
+          : `Welcome, ${profile?.full_name ?? user.email}`}
+      </p>
 
-      {/* Stats */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href}>
             <Card className="transition-all hover:border-teal/30">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal/10 text-teal">
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-white">{stat.value}</p>
-                  <p className="text-sm text-slate-500">{stat.label}</p>
-                </div>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400">
+                  {stat.label}
+                </CardTitle>
+                <stat.icon className="h-4 w-4 text-slate-500" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-lg font-semibold text-white">{stat.value}</p>
               </CardContent>
             </Card>
           </Link>
         ))}
-      </div>
-
-      {/* Quick Actions */}
-      <h2 className="mb-4 text-xl font-semibold text-white">{t.quickActions}</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href={`/${l}/products`}>
-          <Button variant="outline" className="w-full justify-between">
-            {t.browseProducts}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
-        {isSupplier && (
-          <Link href={`/${l}/dashboard/products`}>
-            <Button variant="outline" className="w-full justify-between">
-              {t.manageProducts}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        )}
-        {isBuyer && (
-          <Link href={`/${l}/inquiries`}>
-            <Button variant="outline" className="w-full justify-between">
-              {t.viewInquiries}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        )}
-        {isSupplier && (
-          <Link href={`/${l}/dashboard/rfqs`}>
-            <Button variant="outline" className="w-full justify-between">
-              {t.viewRFQs}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        )}
       </div>
     </div>
   );

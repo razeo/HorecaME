@@ -1,122 +1,136 @@
-import Link from 'next/link';
-import { ProductCard } from '@horecame/ui/marketplace';
-import { Button, Input, Badge } from '@horecame/ui/primitives';
-import { createClient } from '@/lib/supabase/server';
+import { getProducts, getCategories } from '@horecame/db/queries';
+import { ProductCard } from '@horecame/ui/marketplace/product-card';
+import { Button } from '@horecame/ui/primitives';
 import { Search, SlidersHorizontal } from 'lucide-react';
+import { Input } from '@horecame/ui/primitives';
 
 interface ProductsPageProps {
-  params: Promise<{ lang: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  params: Promise<{ lang: 'me' | 'en' }>;
+  searchParams: Promise<{ q?: string; category?: string; page?: string }>;
 }
 
 export default async function ProductsPage({ params, searchParams }: ProductsPageProps) {
   const { lang } = await params;
-  const sp = await searchParams;
-  const l = lang as 'me' | 'en';
-  const supabase = await createClient();
+  const { q, category, page: pageStr } = await searchParams;
+  const page = pageStr ? parseInt(pageStr) : 1;
 
-  const page = Number(sp.page) || 1;
-  const categoryId = sp.category as string | undefined;
-  const search = sp.q as string | undefined;
-  const pageSize = 24;
+  const [productsRes, categoriesRes] = await Promise.all([
+    getProducts({ lang, search: q, categoryId: category, page, pageSize: 24 }),
+    getCategories(lang),
+  ]);
 
-  let query = supabase
-    .from('products')
-    .select(`
-      *,
-      product_translations!inner(name, description),
-      companies!inner(name, slug, logo_url, is_verified),
-      categories(slug),
-      product_variants(id)
-    `, { count: 'exact' })
-    .eq('is_active', true)
-    .eq('product_translations.lang', l)
-    .order('created_at', { ascending: false })
-    .range((page - 1) * pageSize, page * pageSize - 1);
-
-  if (categoryId) {
-    query = query.eq('category_id', categoryId);
-  }
-  if (search) {
-    query = query.ilike('product_translations.name', `%${search}%`);
-  }
-
-  const { data: products, count } = await query;
-
-  // Fetch categories for filter
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('*, category_translations!inner(name)')
-    .eq('is_active', true)
-    .eq('category_translations.lang', l)
-    .is('parent_id', null)
-    .order('sort_order');
-
-  const totalPages = Math.ceil((count ?? 0) / pageSize);
-
-  const dict = {
-    me: { title: 'Proizvodi', search: 'Pretraži proizvode...', all: 'Sve', noResults: 'Nema proizvoda' },
-    en: { title: 'Products', search: 'Search products...', all: 'All', noResults: 'No products found' },
-  };
-  const t = dict[l];
+  const products = productsRes.data ?? [];
+  const categories = categoriesRes.data ?? [];
+  const total = productsRes.count ?? 0;
+  const totalPages = Math.ceil(total / 24);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="mb-4 text-3xl font-bold text-white">{t.title}</h1>
+        <h1 className="text-3xl font-bold text-white">
+          {lang === 'me' ? 'Proizvodi' : 'Products'}
+        </h1>
+        <p className="mt-2 text-slate-400">
+          {lang === 'me'
+            ? `Pronađite proizvode za vaš biznis (${total} proizvoda)`
+            : `Find products for your business (${total} products)`}
+        </p>
+      </div>
 
-        {/* Filters */}
-        <div className="mb-6 flex flex-wrap gap-2">
-          <Link href={`/${l}/products`}>
-            <Badge variant={!categoryId ? 'default' : 'outline'} className="cursor-pointer">
-              {t.all}
-            </Badge>
-          </Link>
-          {categories?.map((cat) => (
-            <Link key={cat.id} href={`/${l}/products?category=${cat.id}`}>
-              <Badge variant={categoryId === cat.id ? 'default' : 'outline'} className="cursor-pointer">
-                {cat.category_translations[0]?.name}
-              </Badge>
-            </Link>
-          ))}
+      {/* Search and filters */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder={lang === 'me' ? 'Pretraži proizvode...' : 'Search products...'}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+          <span className="text-sm text-slate-500">
+            {lang === 'me' ? 'Kategorija:' : 'Category:'}
+          </span>
+          <select
+            name="category"
+            defaultValue={category ?? ''}
+            className="h-10 rounded-lg border border-teal/20 bg-surface-raised px-3 text-sm text-white"
+          >
+            <option value="">{lang === 'me' ? 'Sve kategorije' : 'All categories'}</option>
+            {categories.map((cat: any) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.category_translations?.[0]?.name ?? cat.slug}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* Products grid */}
-      {products && products.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={{
-                ...product,
-                translations: product.product_translations[0] as { name: string; description: string | null },
-                companies: product.companies as { name: string; slug: string; logo_url: string | null; is_verified: boolean },
-                images: product.images as string[],
-              }}
-              lang={l}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-lg text-slate-400">{t.noResults}</p>
-        </div>
-      )}
+      {products.length > 0 ? (
+        <>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {products.map((product: any) => (
+              <ProductCard
+                key={product.id}
+                product={{
+                  id: product.id,
+                  slug: product.slug,
+                  base_price: product.base_price,
+                  currency: product.currency,
+                  moq: product.moq,
+                  unit: product.unit,
+                  stock_status: product.stock_status,
+                  images: product.images,
+                  translations: {
+                    name: product.product_translations?.[0]?.name ?? product.slug,
+                    description: product.product_translations?.[0]?.description ?? null,
+                  },
+                  companies: {
+                    name: product.companies?.name ?? '',
+                    slug: product.companies?.slug ?? '',
+                    logo_url: product.companies?.logo_url ?? null,
+                    is_verified: product.companies?.is_verified ?? false,
+                  },
+                  categories: product.categories ?? null,
+                }}
+                lang={lang}
+              />
+            ))}
+          </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-8 flex justify-center gap-2">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <Link
-              key={p}
-              href={`/${l}/products?page=${p}${categoryId ? `&category=${categoryId}` : ''}${search ? `&q=${search}` : ''}`}
-            >
-              <Button variant={p === page ? 'default' : 'outline'} size="sm">
-                {p}
-              </Button>
-            </Link>
-          ))}
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-2">
+              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map((p) => (
+                <Button
+                  key={p}
+                  variant={p === page ? 'default' : 'ghost'}
+                  size="sm"
+                  asChild
+                >
+                  <a href={`?page=${p}${q ? `&q=${q}` : ''}${category ? `&category=${category}` : ''}`}>
+                    {p}
+                  </a>
+                </Button>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="py-24 text-center">
+          <Search className="mx-auto h-12 w-12 text-slate-600" />
+          <h2 className="mt-4 text-xl font-semibold text-white">
+            {lang === 'me' ? 'Nema rezultata' : 'No results found'}
+          </h2>
+          <p className="mt-2 text-slate-500">
+            {lang === 'me'
+              ? 'Pokušajte sa drugim pojmom za pretragu.'
+              : 'Try a different search term.'}
+          </p>
         </div>
       )}
     </div>

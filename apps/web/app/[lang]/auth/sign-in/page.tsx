@@ -1,119 +1,65 @@
-'use client';
-
-import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@horecame/ui/primitives';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@horecame/ui/primitives';
+import { cookies } from 'next/headers';
 
 interface SignInPageProps {
-  params: Promise<{ lang: string }>;
+  params: Promise<{ lang: 'me' | 'en' }>;
 }
 
-export default function SignInPage({ params }: SignInPageProps) {
-  const { lang } = React.use(params);
-  const l = lang as 'me' | 'en';
-  const router = useRouter();
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [error, setError] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
+export default async function SignInPage({ params }: SignInPageProps) {
+  const { lang } = await params;
 
-  const dict = {
-    me: {
-      title: 'Prijava',
-      description: 'Prijavite se u vaš HorecaMe nalog',
-      email: 'Email',
-      password: 'Lozinka',
-      submit: 'Prijavite se',
-      loading: 'Prijavljivanje...',
-      noAccount: 'Nemate nalog?',
-      signUp: 'Registrujte se',
-      error: 'Neispravni podaci za prijavu',
-    },
-    en: {
-      title: 'Sign In',
-      description: 'Sign in to your HorecaMe account',
-      email: 'Email',
-      password: 'Password',
-      submit: 'Sign In',
-      loading: 'Signing in...',
-      noAccount: "Don't have an account?",
-      signUp: 'Sign Up',
-      error: 'Invalid login credentials',
-    },
-  };
+  async function signIn(formData: FormData) {
+    'use server';
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const redirectTo = (formData.get('redirect') as string) || `/${lang}/dashboard`;
 
-  const t = dict[l];
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError(t.error);
-      setLoading(false);
-      return;
+      redirect(`/${lang}/auth/sign-in?error=${encodeURIComponent(error.message)}`);
     }
 
-    router.push(`/${l}/dashboard`);
-    router.refresh();
+    redirect(redirectTo);
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">{t.title}</CardTitle>
-          <CardDescription>{t.description}</CardDescription>
+        <CardHeader>
+          <CardTitle className="text-2xl">
+            {lang === 'me' ? 'Prijava' : 'Sign In'}
+          </CardTitle>
+          <CardDescription>
+            {lang === 'me'
+              ? 'Unesite svoje podatke za prijavu'
+              : 'Enter your credentials to sign in'}
+          </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-lg bg-error/10 p-3 text-sm text-error">{error}</div>
-            )}
+        <CardContent>
+          <form action={signIn} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">{t.email}</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Label htmlFor="email">{lang === 'me' ? 'Email' : 'Email'}</Label>
+              <Input id="email" name="email" type="email" required placeholder="email@example.com" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t.password}</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <Label htmlFor="password">{lang === 'me' ? 'Lozinka' : 'Password'}</Label>
+              <Input id="password" name="password" type="password" required />
             </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t.loading : t.submit}
+            <Button type="submit" className="w-full">
+              {lang === 'me' ? 'Prijavite se' : 'Sign In'}
             </Button>
-            <p className="text-center text-sm text-slate-400">
-              {t.noAccount}{' '}
-              <Link href={`/${l}/auth/sign-up`} className="text-sky hover:underline">
-                {t.signUp}
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
+          </form>
+          <p className="mt-4 text-center text-sm text-slate-500">
+            {lang === 'me' ? 'Nemate nalog?' : "Don't have an account?"}{' '}
+            <a href={`/${lang}/auth/sign-up`} className="text-sky hover:underline">
+              {lang === 'me' ? 'Registrujte se' : 'Sign Up'}
+            </a>
+          </p>
+        </CardContent>
       </Card>
     </div>
   );

@@ -190,4 +190,4 @@ export const en = {
 
 export type Dictionary = typeof me;
 
-export const dictionaries: Record<string, Dictionary> = { me, en };
+export const dictionaries = { me, en } as const;

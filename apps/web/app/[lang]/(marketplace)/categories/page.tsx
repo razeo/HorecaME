@@ -1,47 +1,50 @@
-import Link from 'next/link';
-import { CategoryCard } from '@horecame/ui/marketplace';
-import { createClient } from '@/lib/supabase/server';
+import { getCategories } from '@horecame/db/queries';
+import { CategoryCard } from '@horecame/ui/marketplace/category-card';
 
 interface CategoriesPageProps {
-  params: Promise<{ lang: string }>;
+  params: Promise<{ lang: 'me' | 'en' }>;
 }
 
 export default async function CategoriesPage({ params }: CategoriesPageProps) {
   const { lang } = await params;
-  const l = lang as 'me' | 'en';
-  const supabase = await createClient();
-
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('*, category_translations!inner(name, description)')
-    .eq('is_active', true)
-    .eq('category_translations.lang', l)
-    .is('parent_id', null)
-    .order('sort_order');
-
-  const title = l === 'me' ? 'Kategorije' : 'Categories';
+  const { data: categories } = await getCategories(lang);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-8 text-3xl font-bold text-white">{title}</h1>
+      <h1 className="mb-2 text-3xl font-bold text-white">
+        {lang === 'me' ? 'Kategorije' : 'Categories'}
+      </h1>
+      <p className="mb-8 text-slate-400">
+        {lang === 'me'
+          ? 'Pregledajte sve kategorije proizvoda'
+          : 'Browse all product categories'}
+      </p>
 
       {categories && categories.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat) => (
+          {categories.map((category: any) => (
             <CategoryCard
-              key={cat.id}
+              key={category.id}
               category={{
-                ...cat,
-                translations: cat.category_translations[0] as { name: string; description: string | null },
+                id: category.id,
+                slug: category.slug,
+                icon: category.icon,
+                image_url: category.image_url,
+                translations: {
+                  name: category.category_translations?.[0]?.name ?? category.slug,
+                  description: category.category_translations?.[0]?.description ?? null,
+                },
               }}
-              lang={l}
+              lang={lang}
             />
           ))}
         </div>
       ) : (
-        <p className="text-center text-slate-400 py-20">
-          {l === 'me' ? 'Nema kategorija' : 'No categories found'}
-        </p>
+        <div className="py-24 text-center">
+          <p className="text-slate-500">
+            {lang === 'me' ? 'Nema kategorija' : 'No categories available'}
+          </p>
+        </div>
       )}
     </div>
   );

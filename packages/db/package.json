@@ -3,14 +3,26 @@
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
-  "type": "module",
+  "type": "commonjs",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./types": "./src/types.ts",
-    "./queries": "./src/queries/index.ts",
-    "./client": "./src/client.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "default": "./src/types.ts"
+    },
+    "./queries": {
+      "types": "./src/queries/index.ts",
+      "default": "./src/queries/index.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./src/client.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -24,6 +36,7 @@
   "devDependencies": {
     "@horecame/tsconfig": "workspace:*",
     "@horecame/shared": "workspace:*",
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
   }
 }

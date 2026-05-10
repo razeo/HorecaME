@@ -2,7 +2,11 @@
   "extends": "@horecame/tsconfig/base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["es2022", "dom"],
+    "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*"]
 }
