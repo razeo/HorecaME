@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://hpoowkyhovslvbngmqub.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb293a3lob3ZzbHZibmdtcXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NjAyMTMsImV4cCI6MjA4OTQzNjIxM30.UqRieFC0uXbQrr0zcaTN1zkbcpzbPNLcY1sXOqSdDcg"
+  }
+}
