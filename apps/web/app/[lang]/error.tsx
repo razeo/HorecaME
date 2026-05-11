@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from '@horecame/ui/primitives';
 import { AlertTriangle, Home } from 'lucide-react';
 import Link from 'next/link';
