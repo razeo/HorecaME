@@ -42,4 +42,5 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: echo "NEXT_PUBLIC_SUPABASE_URL=https://dummy.supabase.co" >> apps/web/.env.local && echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy_key" >> apps/web/.env.local
       - run: pnpm build
