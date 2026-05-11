@@ -12,6 +12,8 @@
     "db:seed": "turbo db:seed"
   },
   "devDependencies": {
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^15.5.14",
     "prettier": "^3.4.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0"
